@@ -1,0 +1,77 @@
+{{define "terminal-view"}}
+    <!-- Terminal View -->
+    <div id="terminalView"
+         class="terminal-view"
+         x-show="view === 'terminal'"
+         x-cloak>
+        <div class="terminal-fixed-header">
+            <header class="header">
+                <div class="header-left">
+                    <button class="back-btn" @click="view = 'list'">&#x2190;</button>
+                    <span class="header-title" x-text="currentBranch"></span>
+                </div>
+                <div class="header-actions">
+                    <button class="icon-btn"
+                            :class="{ 'active': autoScroll }"
+                            :title="autoScroll ? 'Auto-scroll ON' : 'Auto-scroll OFF'"
+                            @click="toggleAutoScroll()">
+                        <span x-show="autoScroll">&#x23EC;</span>
+                        <span x-show="!autoScroll">&#x23F8;</span>
+                    </button>
+                    <button class="icon-btn" title="Disconnect" @click="disconnectAndGoBack()">&#x23FB;</button>
+                    <button class="icon-btn" title="Settings">&#x2699;</button>
+                </div>
+            </header>
+
+            <div class="terminal-tabs">
+                <button class="terminal-tab"
+                        :class="{ 'active': tab === 'ai' }"
+                        @click="switchTab('ai')">
+                    <span>&#x1F916; AI</span>
+                    <span class="status-dot" :class="{ 'running': aiRunning }"></span>
+                </button>
+                <button class="terminal-tab"
+                        :class="{ 'active': tab === 'explorer' }"
+                        @click="switchTab('explorer')">
+                    <span>&#x1F4C1; MD Explorer</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- AI Terminal Panel -->
+        <div class="tab-panel" x-show="tab === 'ai'" style="display: flex; flex-direction: column;">
+            <div class="terminal-container" x-ref="aiTerminalContainer" @click="aiTerminal?.focus()"></div>
+        </div>
+
+        <!-- Explorer Panel -->
+        <div class="tab-panel" x-show="tab === 'explorer'" style="overflow-y: auto;">
+            <div class="file-tree" x-html="renderFileTree()"></div>
+        </div>
+
+        <div class="terminal-controls">
+            <div class="control-row">
+                <button class="control-btn" @click="sendKey('ctrlc')">Ctrl+C</button>
+                <button class="control-btn arrow-btn" @click="sendKey('up')">&#x25B2;</button>
+                <button class="control-btn" @click="sendKey('tab')">Tab</button>
+                <button class="control-btn" style="margin-left: auto;" @click="pasteFromClipboard()">Ctrl+V</button>
+                <button class="control-btn" @click="sendKey('shifttab')">Shift+Tab</button>
+            </div>
+            <div class="control-row">
+                <button class="control-btn arrow-btn" @click="sendKey('left')">&#x25C0;</button>
+                <button class="control-btn enter-btn" @click="sendKey('enter')">Enter</button>
+                <button class="control-btn arrow-btn" @click="sendKey('right')">&#x25B6;</button>
+            </div>
+            <div class="control-row">
+                <button class="control-btn" @click="sendKey('escape')">Esc</button>
+                <button class="control-btn arrow-btn" @click="sendKey('down')">&#x25BC;</button>
+                <button class="control-btn" @click="aiTerminal?.focus()">&#x2328;</button>
+                <button class="control-btn commit-push-btn"
+                        @click="commitAndPush()"
+                        :disabled="commitPushLoading">
+                    <span x-show="!commitPushLoading">&#x1F680;</span>
+                    <span x-show="commitPushLoading">&#x23F3;</span>
+                </button>
+            </div>
+        </div>
+    </div>
+{{end}}

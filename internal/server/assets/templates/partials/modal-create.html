@@ -1,0 +1,60 @@
+{{define "modal-create"}}
+    <!-- Create Worktree Modal -->
+    <div class="modal-overlay"
+         x-show="modalOpen"
+         x-cloak
+         @click.self="!createWorktreeLoading && (modalOpen = false)">
+        <div class="modal">
+            <div class="modal-handle"></div>
+            <h2 class="modal-title">Create Worktree</h2>
+
+            <form @submit.prevent="createWorktree">
+                <div class="option-group">
+                    <label class="option-label"
+                           :class="{ 'selected': createType === 'new' }"
+                           @click="createType = 'new'">
+                        <input type="radio" name="createType" value="new" x-model="createType">
+                        <div class="radio-indicator"></div>
+                        <span class="option-text">Create new branch</span>
+                    </label>
+                    <div x-show="createType === 'new'">
+                        <input type="text"
+                               class="text-input"
+                               x-model="newBranchName"
+                               placeholder="Branch name (e.g., feature/login)">
+                    </div>
+
+                    <label class="option-label"
+                           :class="{ 'selected': createType === 'existing' }"
+                           @click="createType = 'existing'">
+                        <input type="radio" name="createType" value="existing" x-model="createType">
+                        <div class="radio-indicator"></div>
+                        <span class="option-text">Checkout existing branch</span>
+                    </label>
+                    <div x-show="createType === 'existing'">
+                        <div class="select-wrapper">
+                            <select class="select-input" x-model="selectedBranch">
+                                <option value="">Select branch...</option>
+                                <template x-for="branch in availableBranches" :key="branch">
+                                    <option :value="branch" x-text="branch"></option>
+                                </template>
+                            </select>
+                            <span class="select-arrow">&#x25BC;</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-cancel"
+                            @click="modalOpen = false"
+                            :disabled="createWorktreeLoading">Cancel</button>
+                    <button type="submit" class="btn btn-primary"
+                            :disabled="createWorktreeLoading">
+                        <span x-show="!createWorktreeLoading">Create</span>
+                        <span x-show="createWorktreeLoading">Creating...</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+{{end}}
