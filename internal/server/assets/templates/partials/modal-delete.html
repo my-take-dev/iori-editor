@@ -1,0 +1,30 @@
+{{define "modal-delete"}}
+    <!-- Delete Confirmation Modal -->
+    <div class="modal-overlay"
+         x-show="deleteConfirmOpen"
+         x-cloak
+         @click.self="cancelDelete()">
+        <div class="modal">
+            <div class="modal-handle"></div>
+            <h2 class="modal-title">Delete Worktree</h2>
+
+            <div class="delete-confirm-content">
+                <p>Delete worktree "<span x-text="deleteTargetBranch"></span>"?</p>
+
+                <label class="checkbox-label">
+                    <input type="checkbox" x-model="deleteBranchToo">
+                    <span class="checkbox-text">Also delete the branch</span>
+                </label>
+
+                <p class="delete-warning" x-show="deleteBranchToo">
+                    &#x26A0; The branch will be permanently deleted from the repository
+                </p>
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn btn-cancel" @click="cancelDelete()">Cancel</button>
+                <button type="button" class="btn btn-danger" @click="confirmDelete()">Delete</button>
+            </div>
+        </div>
+    </div>
+{{end}}

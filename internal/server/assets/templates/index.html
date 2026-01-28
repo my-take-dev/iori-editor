@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html lang="ja">
+{{template "head" .}}
+<body x-data="app()" x-init="init()" data-session-id="{{.SessionID}}" data-base-branch="{{.BaseBranch}}" data-repo-path="{{.RepoPath}}">
+    {{template "list-view" .}}
+    {{template "terminal-view" .}}
+    {{template "md-viewer" .}}
+    {{template "toast" .}}
+    {{template "modal-create" .}}
+    {{template "modal-delete" .}}
+</body>
+</html>
