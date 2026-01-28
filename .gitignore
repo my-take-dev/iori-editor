@@ -1,0 +1,25 @@
+
+
+build/bin/*
+*-cwd
+*.exe
+.idea/*
+.mcp.json
+
+
+
+# Frontend dependencies and build artifacts
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/package.json.md5
+
+# Temporary directories
+temp/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Log files
+*.log

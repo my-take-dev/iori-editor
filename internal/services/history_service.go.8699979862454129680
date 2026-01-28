@@ -1,0 +1,234 @@
+package services
+
+import (
+	"context"
+	"fmt"
+	"sync"
+
+	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"my-cli-editor/internal/history"
+	"my-cli-editor/internal/logger"
+)
+
+// ActiveSessionInfo represents the result of IsActiveSessionHistory
+type ActiveSessionInfo struct {
+	IsActive  bool   `json:"isActive"`
+	SessionID string `json:"sessionId"`
+}
+
+const (
+	// HistoryStreamChunkSize is the number of entries to send in each chunk
+	HistoryStreamChunkSize = 100
+)
+
+// HistoryChunkEvent represents a chunk of history data sent via Wails event
+type HistoryChunkEvent struct {
+	RequestID  string `json:"requestId"`
+	Data       string `json:"data"`
+	StartIndex int    `json:"startIndex"`
+	EndIndex   int    `json:"endIndex"`
+	HasMore    bool   `json:"hasMore"`
+}
+
+// HistoryEndEvent represents the end of history streaming sent via Wails event
+type HistoryEndEvent struct {
+	RequestID    string `json:"requestId"`
+	TotalEntries int    `json:"totalEntries"`
+	FileSize     int64  `json:"fileSize"`
+}
+
+// HistoryErrorEvent represents an error during history streaming
+type HistoryErrorEvent struct {
+	RequestID string `json:"requestId"`
+	Error     string `json:"error"`
+	ErrorCode string `json:"errorCode,omitempty"`
+}
+
+// HistoryService handles all history-related operations
+type HistoryService struct {
+	historyManager *history.Manager
+	ctx            context.Context
+	activeStreams  map[string]context.CancelFunc
+	streamsMu      sync.Mutex
+}
+
+// setContext sets the Wails context for event emission
+func (s *HistoryService) setContext(ctx context.Context) {
+	s.ctx = ctx
+}
+
+// getContext returns the Wails context
+func (s *HistoryService) getContext() context.Context {
+	return s.ctx
+}
+
+// NewHistoryService creates a new HistoryService instance
+func NewHistoryService(historyManager *history.Manager) *HistoryService {
+	return &HistoryService{
+		historyManager: historyManager,
+		activeStreams:  make(map[string]context.CancelFunc),
+	}
+}
+
+// SetContext sets the Wails context for event emission (exported for app.go)
+func (s *HistoryService) SetContext(ctx context.Context) {
+	s.ctx = ctx
+}
+
+// GetHistoryList returns the list of available history files
+func (s *HistoryService) GetHistoryList() ([]history.HistoryInfo, error) {
+	if s.historyManager == nil {
+		return nil, fmt.Errorf("history manager not initialized")
+	}
+	return s.historyManager.ListHistories()
+}
+
+// GetHistoryContent returns the content of a specific history file
+func (s *HistoryService) GetHistoryContent(filename string) (*history.TerminalHistory, error) {
+	if s.historyManager == nil {
+		return nil, fmt.Errorf("history manager not initialized")
+	}
+	return s.historyManager.GetHistory(filename)
+}
+
+// DeleteHistory deletes a history file
+func (s *HistoryService) DeleteHistory(filename string) error {
+	if s.historyManager == nil {
+		return fmt.Errorf("history manager not initialized")
+	}
+	return s.historyManager.DeleteHistory(filename)
+}
+
+// FlushCurrentHistory flushes the current session's history to disk
+func (s *HistoryService) FlushCurrentHistory(sessionID string) (string, error) {
+	if s.historyManager == nil {
+		return "", fmt.Errorf("history manager not initialized")
+	}
+
+	err := s.historyManager.FlushSession(sessionID)
+	if err != nil {
+		return "", err
+	}
+
+	return s.historyManager.GetActiveSessionFilename(sessionID), nil
+}
+
+// IsActiveSessionHistory checks if a history file belongs to an active session
+func (s *HistoryService) IsActiveSessionHistory(filename string) ActiveSessionInfo {
+	if s.historyManager == nil {
+		return ActiveSessionInfo{IsActive: false, SessionID: ""}
+	}
+
+	isActive, sessionID := s.historyManager.IsActiveSession(filename)
+	return ActiveSessionInfo{IsActive: isActive, SessionID: sessionID}
+}
+
+// GetHistoryContentWithFlush returns the content of a history file, flushing if it's the current session
+func (s *HistoryService) GetHistoryContentWithFlush(filename string, currentSessionID string) (*history.TerminalHistory, error) {
+	if s.historyManager == nil {
+		return nil, fmt.Errorf("history manager not initialized")
+	}
+	return s.historyManager.GetHistoryWithFlush(filename, currentSessionID)
+}
+
+// GetHistoryChunk returns a chunk of history data with pagination
+func (s *HistoryService) GetHistoryChunk(filename string, offset, limit int, currentSessionID string) (*history.HistoryChunk, error) {
+	if s.historyManager == nil {
+		return nil, fmt.Errorf("history manager not initialized")
+	}
+	return s.historyManager.GetHistoryChunkWithFlush(filename, offset, limit, currentSessionID)
+}
+
+// StartHistoryStream starts streaming history data via Wails events
+// Returns the requestID that will be used in events
+func (s *HistoryService) StartHistoryStream(requestID, filename string, offset int, currentSessionID string) error {
+	if s.historyManager == nil {
+		return fmt.Errorf("history manager not initialized")
+	}
+	if s.ctx == nil {
+		return fmt.Errorf("context not set")
+	}
+
+	// Flush if this is an active session
+	if currentSessionID != "" {
+		if err := s.historyManager.FlushSession(currentSessionID); err != nil {
+			logger.Warn("failed to flush session before streaming", err)
+		}
+	}
+
+	// Cancel any existing stream with the same requestID
+	s.streamsMu.Lock()
+	if cancel, exists := s.activeStreams[requestID]; exists {
+		cancel()
+	}
+	streamCtx, cancel := context.WithCancel(s.ctx)
+	s.activeStreams[requestID] = cancel
+	s.streamsMu.Unlock()
+
+	go s.streamHistoryLoop(streamCtx, requestID, filename, offset)
+	return nil
+}
+
+// StopHistoryStream stops an active history stream
+func (s *HistoryService) StopHistoryStream(requestID string) {
+	s.streamsMu.Lock()
+	defer s.streamsMu.Unlock()
+
+	if cancel, exists := s.activeStreams[requestID]; exists {
+		cancel()
+		delete(s.activeStreams, requestID)
+	}
+}
+
+// wailsStreamHandler implements history.StreamHandler for Wails event emission
+type wailsStreamHandler struct {
+	ctx       context.Context
+	requestID string
+}
+
+func (h *wailsStreamHandler) OnChunk(chunk history.StreamChunk) error {
+	runtime.EventsEmit(h.ctx, "history:chunk", HistoryChunkEvent{
+		RequestID:  h.requestID,
+		Data:       chunk.Data,
+		StartIndex: chunk.StartIndex,
+		EndIndex:   chunk.EndIndex,
+		HasMore:    chunk.HasMore,
+	})
+	return nil
+}
+
+func (h *wailsStreamHandler) OnEnd(result history.StreamResult) {
+	runtime.EventsEmit(h.ctx, "history:end", HistoryEndEvent{
+		RequestID:    h.requestID,
+		TotalEntries: result.TotalEntries,
+		FileSize:     result.FileSize,
+	})
+}
+
+func (h *wailsStreamHandler) OnError(err error) {
+	errorCode := string(history.GetErrorCode(err))
+	runtime.EventsEmit(h.ctx, "history:error", HistoryErrorEvent{
+		RequestID: h.requestID,
+		Error:     err.Error(),
+		ErrorCode: errorCode,
+	})
+}
+
+// streamHistoryLoop is the main streaming loop using HistoryStreamer
+func (s *HistoryService) streamHistoryLoop(ctx context.Context, requestID, filename string, offset int) {
+	defer func() {
+		s.streamsMu.Lock()
+		delete(s.activeStreams, requestID)
+		s.streamsMu.Unlock()
+	}()
+
+	storage := s.historyManager.GetStorage()
+	streamer := history.NewHistoryStreamerWithChunkSize(storage, HistoryStreamChunkSize)
+
+	handler := &wailsStreamHandler{
+		ctx:       s.ctx,
+		requestID: requestID,
+	}
+
+	streamer.Stream(ctx, filename, offset, handler)
+}

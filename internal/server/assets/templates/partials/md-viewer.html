@@ -1,0 +1,14 @@
+{{define "md-viewer"}}
+    <!-- MD Viewer -->
+    <div class="md-viewer-overlay"
+         x-show="mdViewerOpen"
+         x-cloak
+         style="display: flex;">
+        <div class="md-viewer-header">
+            <button class="back-btn" @click="mdViewerOpen = false">&#x2190;</button>
+            <span class="md-filename" x-text="currentMdFile.name"></span>
+            <button class="copy-path-btn" @click="copyPathToClipboard(currentMdFile.path)">&#x1F4CB;</button>
+        </div>
+        <div class="md-content" x-html="renderedMdContent"></div>
+    </div>
+{{end}}

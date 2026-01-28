@@ -1,0 +1,60 @@
+{{define "list-view"}}
+    <!-- List View -->
+    <div id="listView" x-show="view === 'list'" x-cloak>
+        <header class="header">
+            <div class="header-left">
+                <span class="header-title">{{.RepoPath}}</span>
+            </div>
+            <div class="header-actions">
+                <button class="icon-btn" title="Fetch" @click="fetchRemote()">&#x2B07;</button>
+                <button class="icon-btn" title="Refresh" @click="loadWorktrees()">&#x21BB;</button>
+                <button class="icon-btn" title="Logout" @click="logout()">&#x23FB;</button>
+            </div>
+        </header>
+
+        <main class="content">
+            <p class="pull-hint">&#x2193; Pull to refresh - Tap to open terminal</p>
+            <div class="section-header">Worktrees (<span x-text="worktrees.length"></span>)</div>
+
+            <div id="worktree-list">
+                <template x-for="wt in worktrees" :key="wt.branch">
+                    <div class="worktree-card"
+                         :class="{ 'main': wt.isMain }"
+                         @click="selectWorktree(wt)">
+                        <div class="worktree-header">
+                            <div class="worktree-branch">
+                                <span class="branch-icon">&#x1F33F;</span>
+                                <span class="branch-name" x-text="wt.branch"></span>
+                                <span class="main-badge" x-show="wt.isMain">MAIN</span>
+                            </div>
+                            <button class="delete-btn"
+                                    x-show="!wt.isMain"
+                                    @click.stop="openDeleteConfirm(wt.branch)">&#x1F5D1;</button>
+                        </div>
+                        <div class="worktree-path" x-text="wt.path"></div>
+                        <div class="worktree-meta">
+                            <div class="commit-info">
+                                <span class="commit-hash" x-text="wt.commitHash"></span>
+                                <span x-text="'- ' + wt.commitTime"></span>
+                            </div>
+                            <div class="status-badges">
+                                <span class="status-badge ahead" x-show="wt.ahead > 0" x-text="'&#x2191;' + wt.ahead"></span>
+                                <span class="status-badge behind" x-show="wt.behind > 0" x-text="'&#x2193;' + wt.behind"></span>
+                                <span class="status-badge dirty" x-show="wt.dirty">&#x25CF; Modified</span>
+                            </div>
+                        </div>
+                        <div class="ai-status">
+                            <div class="ai-indicator" :class="wt.aiStatus"></div>
+                            <span x-text="getAiStatusText(wt.aiStatus)"></span>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </main>
+
+        <button class="fab" @click="modalOpen = true">
+            <span>+</span>
+            <span>Create Worktree</span>
+        </button>
+    </div>
+{{end}}
