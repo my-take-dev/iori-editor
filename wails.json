@@ -1,6 +1,6 @@
 {
   "$schema": "https://wails.io/schemas/config.v2.json",
-  "name": "iori 0.0.1",
+  "name": "iori 0.0.2",
   "outputfilename": "iori",
   "frontend:install": "npm install",
   "frontend:build": "npm run build",
@@ -13,7 +13,7 @@
   "info": {
     "companyName": "my-take-dev",
     "productName": "IORI",
-    "productVersion": "0.0.1",
+    "productVersion": "0.0.2",
     "copyright": "Copyright 2026 my-take-dev",
     "comments": "IORI Editor"
   }
