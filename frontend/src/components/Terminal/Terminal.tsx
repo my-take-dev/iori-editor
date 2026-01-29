@@ -8,6 +8,14 @@ import type { TerminalType, TerminalOutput } from '../../types/session'
 import { WriteToTerminal, ResizeTerminal, GetTerminalHistory } from '../../wailsjs/go/main/App'
 import { EventsOn } from '../../wailsjs/runtime/runtime'
 
+declare global {
+  interface Window {
+    runtime: {
+      ClipboardGetText: () => Promise<string>
+    }
+  }
+}
+
 interface TerminalProps {
   sessionId: string
   terminalType: TerminalType
@@ -279,6 +287,22 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
       if (event.type !== 'keydown') {
         return true
       }
+
+      // Handle paste (Ctrl+V or Cmd+V)
+      if ((event.ctrlKey || event.metaKey) && event.key === 'v') {
+        event.preventDefault()
+        event.stopPropagation()
+        window.runtime
+          .ClipboardGetText()
+          .then((text: string) => {
+            if (text) {
+              WriteToTerminal(sessionId, terminalType, text).catch(console.error)
+            }
+          })
+          .catch(console.error)
+        return false
+      }
+
       if (
         terminalType === 'ai' &&
         (event.key === 'ArrowUp' ||
@@ -305,9 +329,6 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
 
     // Handle input
     term.onData(handleInput)
-
-    // Allow xterm.js to handle paste natively via term.onData
-    // No custom paste handler needed - onData will capture pasted text
 
     let historyLoaded = false
     const pendingOutput: string[] = []

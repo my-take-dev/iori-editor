@@ -1,6 +1,6 @@
 # IORI (庵) Editor
 
-![作業イメージ画像](./temp/image.png)
+![作業イメージ画像](./img/image.png)
 
 
 ## 命名の由来

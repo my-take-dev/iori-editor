@@ -64,7 +64,7 @@ func main() {
 
 	// Configure application options
 	appOptions := &options.App{
-		Title:            fmt.Sprintf("IORI v%s", "0.0.1"),
+		Title:            fmt.Sprintf("IORI v%s", "0.0.2"),
 		Width:            1400,
 		Height:           900,
 		DisableResize:    false,
